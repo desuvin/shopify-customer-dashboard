@@ -67,6 +67,14 @@ export default function HomePage() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <main className="p-6">
+        <h1 className="text-xl font-bold mb-4">Shopify Customers</h1>
+        <div className="text-center text-gray-500">Loading...</div>
+      </main>
+    );
+  }
   return (
     <main className="p-6">
       <h1 className="text-xl font-bold mb-4">Shopify Customers</h1>
