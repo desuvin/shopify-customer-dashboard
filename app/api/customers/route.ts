@@ -1,7 +1,7 @@
 // app/api/customers/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   const domain = process.env.SHOPIFY_STORE_DOMAIN!;
   const token = process.env.SHOPIFY_ADMIN_API_TOKEN!;
 
