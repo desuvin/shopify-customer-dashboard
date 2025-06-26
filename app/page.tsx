@@ -13,19 +13,21 @@ export default function HomePage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [prevCursors, setPrevCursors] = useState<string[]>([]);
-  // const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [endCursor, setEndCursor] = useState<string | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [shipToCode, setShipToCode] = useState('');
   const [navisionAccount, setNavisionAccount] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
-      setIsLoading(true);
       try {
-        const res = await fetch(`/api/customers?cursor=${cursor ?? ''}`);
+        const url = `/api/customers?cursor=${cursor ?? ''}${
+          searchQuery ? `&query=${encodeURIComponent(searchQuery)}` : ''
+        }`;
+        const res = await fetch(url);
         const data = await res.json();
 
         if (data.customers) {
@@ -33,22 +35,31 @@ export default function HomePage() {
           setHasNextPage(data.pageInfo?.hasNextPage || false);
           setEndCursor(data.endCursor || null);
         }
-        // setCustomers(data.customers);
-        // setNextCursor(data.endCursor ?? null);
+
+      } catch (error) {
+        console.error('Error fetching customers:', error);
       } finally {
-        setIsLoading(false);
+        setIsSearching(false);
       }
      
     };
     fetchData();
-  }, [cursor]);
+  }, [cursor, searchQuery]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSearching(true);
+    setCursor(null);
+    setPrevCursors([]);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setCursor(null);
+    setPrevCursors([]);
+  }
 
   const goToNext = () => {
-  //   if (nextCursor) {
-  //     setPrevCursors(prev => [...prev, cursor ?? '']);
-  //     setCursor(nextCursor);
-  //   }
-  // };
     if (endCursor) {
       setPrevCursors(prev => [...prev, cursor ?? '']);
       setCursor(endCursor);
@@ -56,9 +67,6 @@ export default function HomePage() {
   };
 
   const goToPrev = () => {
-    // const lastCursor = prevCursors[prevCursors.length - 1];
-    // setPrevCursors(prev => prev.slice(0, -1));
-    // setCursor(lastCursor || null);
     if (prevCursors.length > 0) {
       const newPrevCursors = [...prevCursors];
       const prevCursor = newPrevCursors.pop() || null;
@@ -67,17 +75,36 @@ export default function HomePage() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <main className="p-6">
-        <h1 className="text-xl font-bold mb-4">Shopify Customers</h1>
-        <div className="text-center text-gray-500">Loading...</div>
-      </main>
-    );
-  }
   return (
     <main className="p-6">
-      <h1 className="text-xl font-bold mb-4">Shopify Customers</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-xl font-bold mb-4">Shopify Customers</h1>
+        <form onSubmit={handleSearch} className="flex gap-2">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name or email..."
+              className="px-3 py-2 border rounded-md w-64"
+            />
+            <button
+              type="submit"
+              disabled={isSearching}
+              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-300"
+            >
+              {isSearching ? 'Searching...' : 'Search'}
+            </button>
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={clearSearch}
+                className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
+              >
+                Clear
+              </button>
+            )}
+        </form>
+      </div>
 
       <table className="w-full table-auto border border-gray-300">
         <thead className="bg-blue-300">
@@ -116,28 +143,37 @@ export default function HomePage() {
       </table>
 
       {/* Pagination */}
-      {/* <div className="flex gap-4 mt-4">
-        <button disabled={prevCursors.length === 0} onClick={goToPrev}>Previous</button>
-        <button disabled={!nextCursor} onClick={goToNext}>Next</button>
-      </div> */}
-
-      <div className="flex gap-4 mt-4">
-        <button 
-          disabled={prevCursors.length === 0} 
-          onClick={goToPrev}
-          className={`px-4 py-2 rounded ${prevCursors.length === 0 ? 'bg-gray-300 cursors-not-allowed' : 'bg-blue-500 text-white'}`}
-        >
-          Previous
-        </button>
-        <button 
-          disabled={!hasNextPage} 
-          onClick={goToNext}
-          className={`px-4 py-2 rounded ${!hasNextPage ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-500 text-white'}`}
-        >
-          Next
-        </button>
-        <div className="mt-2 text-sm text-gray-600">
-          Page {prevCursors.length + 1} • {customers.length} customers shown
+       <div className="flex justify-between items-center mt-4">
+        <div>
+          {searchQuery && (
+            <p className="text-sm text-gray-600">
+              Showing results for: &quot;{searchQuery}&quot;
+            </p>
+          )}
+        </div>
+        <div className="flex gap-4">
+          <button 
+            disabled={prevCursors.length === 0 || isSearching} 
+            onClick={goToPrev}
+            className={`px-4 py-2 rounded ${
+              prevCursors.length === 0 || isSearching 
+                ? 'bg-gray-300 cursor-not-allowed' 
+                : 'bg-blue-500 text-white hover:bg-blue-600'
+            }`}
+          >
+            Previous
+          </button>
+          <button 
+            disabled={!hasNextPage || isSearching} 
+            onClick={goToNext}
+            className={`px-4 py-2 rounded ${
+              !hasNextPage || isSearching 
+                ? 'bg-gray-300 cursor-not-allowed' 
+                : 'bg-blue-500 text-white hover:bg-blue-600'
+            }`}
+          >
+            Next
+          </button>
         </div>
       </div>
 

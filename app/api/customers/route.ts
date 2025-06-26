@@ -1,8 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+type CustomerEdge = {
+  cursor: string;
+  node: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    metafields?:{
+        edges?: Array<{
+          node: {
+            key: string;
+            value: string;
+            };
+        }>;
+    };
+};
+};
+
+type GraphQLResponse = {
+  data?: {
+    customers?: {
+        pageInfo: {
+          hasNextPage: boolean;
+        };
+        edges: CustomerEdge[];
+    };
+    };
+  errors?: Array<{
+    message: string;
+  }>;
+};
+
 export async function GET(req: NextRequest) {
   try {
     const cursor = req.nextUrl.searchParams.get('cursor');
+    const searchQuery = req.nextUrl.searchParams.get('query') || '';
     const token = process.env.SHOPIFY_ADMIN_API_TOKEN;
     const domain = process.env.SHOPIFY_STORE_DOMAIN;
 
@@ -17,8 +50,8 @@ export async function GET(req: NextRequest) {
     const endpoint = `https://${domain}/admin/api/2024-01/graphql.json`;
 
     const query = `
-      query GetCustomers($cursor: String) {
-        customers(first: 50, after: $cursor) {
+      query GetCustomers($cursor: String, $query: String) {
+        customers(first: 50, after: $cursor, query: $query) {
           pageInfo {
             hasNextPage
           }
@@ -52,7 +85,11 @@ export async function GET(req: NextRequest) {
       },
       body: JSON.stringify({
         query,
-        variables: cursor ? { cursor } : {},
+        variables: {
+            ...(cursor ? { cursor } : {}),
+            ...(searchQuery ? { query: `name:${searchQuery}* OR email:${searchQuery}*` } : {})
+        },
+        // variables: cursor ? { cursor } : {},
       }),
     });
 
@@ -73,7 +110,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const json = await response.json();
+    const json: GraphQLResponse = await response.json();
 
     // Check for GraphQL errors
     if (json.errors) {
@@ -94,12 +131,12 @@ export async function GET(req: NextRequest) {
     }
 
     const edges = json.data.customers.edges;
-    const customers = edges.map((edge: any) => ({
+    const customers = edges.map((edge) => ({
       id: edge.node.id,
       first_name: edge.node.firstName,
       last_name: edge.node.lastName,
       email: edge.node.email,
-      metafields: edge.node.metafields?.edges?.map((m: any) => ({
+      metafields: edge.node.metafields?.edges?.map((m) => ({
         key: m.node.key,
         value: m.node.value,
       })) || [],
@@ -109,6 +146,7 @@ export async function GET(req: NextRequest) {
       customers,
       pageInfo: json.data.customers.pageInfo,
       endCursor: edges.length > 0 ? edges[edges.length - 1].cursor : null,
+      searchQuery,
     });
 
   } catch (error) {
