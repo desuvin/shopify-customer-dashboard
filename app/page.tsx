@@ -75,6 +75,8 @@ export default function HomePage() {
     }
   };
 
+  const extractShopifyId = (gid: string) => gid.split('/').pop() || gid;
+
   return (
     <main className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -98,7 +100,7 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={clearSearch}
-                className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
+                className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 text-black"
               >
                 Clear
               </button>
@@ -120,7 +122,7 @@ export default function HomePage() {
         <tbody>
           {customers.map(customer => (
             <tr key={customer.id}>
-              <td>{customer.id}</td>
+              <td>{extractShopifyId(customer.id)}</td>
               <td>{customer.first_name} {customer.last_name}</td>
               <td>{customer.email}</td>
               <td>{customer.metafields.find(m => m.key === 'ship_to_code')?.value || 'N/A'}</td>
